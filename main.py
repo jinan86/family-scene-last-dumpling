@@ -1,62 +1,69 @@
-"""Make the AI Judge Feel Proud: A Family Scene — make.fun entry.
+#!/usr/bin/env python3
+"""Entry for "Make the AI Judge Feel Proud: A Family Scene".
 
-Writes one short family scene (a single line of text) to
-``/output/entry.txt``. The program is fully deterministic: no input,
-no network, no randomness, no clock. It only validates the scene
-against the competition gate (UTF-8 text, 1-280 characters, not only
-whitespace, a single line ending in sentence punctuation) and writes
-it out exactly, with no trailing newline.
+A one-line family scene, written to /output/entry.txt exactly as-is
+(UTF-8, no trailing newline).
+
+The program is deliberately boring: the scene lives in a single
+constant, it is checked against the competition gate (between 1 and
+280 characters, not only whitespace, one line, ending with sentence
+punctuation), and then it is written out. There is no input, no
+network access, no randomness and no clock, so every run produces
+the same bytes.
 """
 
 import os
 
-TEXT = (
+SCENE = (
     "Mum still saves Dad the last dumpling every night, "
     "Dad still pretends not to notice, "
-    "and I still pretend I never saw — "
+    "and I still pretend I never saw \u2014 "
     "some love languages come with chopsticks."
 )
 
-OUTPUT_PATH = "/output/entry.txt"
-MAX_CHARS = 280
-SENTENCE_ENDINGS = (".", "!", "?")
+DESTINATION = "/output/entry.txt"
+CHAR_LIMIT = 280
+TERMINATORS = (".", "!", "?")
 
 
-def check(text):
-    """Validate the scene against the competition gate.
-
-    Returns a list of error messages; an empty list means the text
-    is valid.
-    """
-    errors = []
-    if not isinstance(text, str):
-        errors.append("entry must be a string")
-        return errors
-    if not text:
-        errors.append("entry is empty")
-    if not text.strip():
-        errors.append("entry is only whitespace")
-    if len(text) > MAX_CHARS:
-        errors.append(
-            "entry is %d characters, over the %d-character limit"
-            % (len(text), MAX_CHARS)
+def problems(scene):
+    """Collect every way `scene` would fail the competition gate."""
+    found = []
+    if not isinstance(scene, str):
+        return ["scene is not a string"]
+    if scene == "":
+        found.append("scene is empty")
+    if scene.strip() == "":
+        found.append("scene is only whitespace")
+    if len(scene) > CHAR_LIMIT:
+        found.append(
+            "scene is %d characters long, limit is %d"
+            % (len(scene), CHAR_LIMIT)
         )
-    if "\n" in text or "\r" in text:
-        errors.append("entry must be a single line")
-    if text and not text.endswith(SENTENCE_ENDINGS):
-        errors.append("entry must end with sentence punctuation")
-    return errors
+    if "\n" in scene or "\r" in scene:
+        found.append("scene must fit on one line")
+    if any(ord(ch) < 0x20 for ch in scene):
+        found.append("scene must not contain control characters")
+    if scene and scene[-1] not in TERMINATORS:
+        found.append("scene must end with . ! or ?")
+    return found
 
 
-def run():
-    """Validate the scene and write it to /output/entry.txt."""
-    errors = check(TEXT)
-    if errors:
-        raise ValueError("; ".join(errors))
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8", newline="") as f:
-        f.write(TEXT)
+def main():
+    """Validate the scene, then write it verbatim to the output file."""
+    faults = problems(SCENE)
+    if faults:
+        raise SystemExit("invalid scene: " + "; ".join(faults))
+    os.makedirs(os.path.dirname(DESTINATION), exist_ok=True)
+    with open(DESTINATION, "w", encoding="utf-8", newline="") as handle:
+        handle.write(SCENE)
+    # Read the file back and confirm what landed on disk is exactly
+    # the scene we intended, byte for byte.
+    with open(DESTINATION, "rb") as handle:
+        written = handle.read()
+    if written != SCENE.encode("utf-8"):
+        raise SystemExit("output mismatch: /output/entry.txt is not the scene")
 
 
 if __name__ == "__main__":
-    run()
+    main()
